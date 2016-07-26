@@ -45,6 +45,9 @@ class LHEParticle(object):
             if idx >= 0: mothers.append(self.event.particles[idx])
         return mothers
     
+    def __getitem__(self, s):
+        return getattr(self, s)
+
 def loads():
     pass
   
@@ -58,6 +61,9 @@ def readLHE(thefile):
                 eventinfo = LHEEventInfo.fromstring(eventdata)
                 particle_objs = []
                 for p in particles:
+                    # POWHEG for example injects extra info into the event record.; just skip lines with '#'
+                    if p[0] == '#':
+                      continue
                     particle_objs+=[LHEParticle.fromstring(p)]
                 yield LHEEvent(eventinfo,particle_objs)
     
