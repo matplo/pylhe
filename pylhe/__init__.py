@@ -53,8 +53,13 @@ def loads():
   
 import xml.etree.ElementTree as ET
 def readLHE(thefile):
+    source = thefile
+    filename, file_extension = os.path.splitext(thefile)
+    if file_extension == '.gzip' or file_extension == '.gz':
+        import gzip
+        source = gzip.open(thefile, 'r')
     try:
-        for event,element in ET.iterparse(thefile,events=['end']):      
+        for event,element in ET.iterparse(source,events=['end']):      
             if element.tag == 'event':
                 data = element.text.split('\n')[1:-1]
                 eventdata,particles = data[0],data[1:]
@@ -70,7 +75,9 @@ def readLHE(thefile):
     except ET.ParseError:
         print "WARNING. Parse Error."
         return
-    
+    if file_extension == '.gzip' or file_extension == '.gz':
+        source.close()
+
 import networkx as nx
 import pypdt
 import tex2pix
