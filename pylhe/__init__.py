@@ -1,4 +1,5 @@
 import os
+import sys
 
 class LHEFile(object):
     def __init__(self):
@@ -50,16 +51,76 @@ class LHEParticle(object):
 
 def loads():
     pass
-  
+
+class SourceFile(object):
+    def __init__(self, fname, subfile=None):
+        self.fname   = fname
+        self.subfile = subfile
+        self.buffer  = None
+        self.tarfile = None
+        self.setup_buffer()
+
+    def close(self):
+        if self.tarfile != None:
+            self.tarfile.close()
+        if self.is_gzip == True:
+            self.buffer.close()
+
+    def exists(self):
+        try:
+            f = open(self.fname, 'r')
+            f.close()
+        except:
+            return False
+        return True
+
+    def is_valid(self):
+        if self.buffer != None:
+            return True
+        return False
+
+    def setup_buffer(self):
+        if self.exists == False:
+            return None
+        if self.subfile == None:
+            # assume a regular file or gzipped
+            filename, file_extension = os.path.splitext(self.fname)
+            if file_extension == '.gzip' or file_extension == '.gz':
+                import gzip
+                try:
+                    self.buffer = gzip.open(self.fname, 'r')
+                    self.is_gzip = True
+                except:
+                    pass
+                    #print >> sys.stderr,'[e] bad gzip file?',self.fname
+            else:
+                self.buffer = self.fname
+        else:
+            import tarfile
+            if tarfile.is_tarfile(self.fname):
+                self.tarfile = tarfile.open(self.fname, "r:gz")
+                try:
+                    tarinfo = self.tarfile.getmember(self.subfile)
+                except:
+                    print >> sys.stderr,'[e] file in archive not found:',self.subfile
+                    tarinfo = None
+                    self.buffer = None
+                if tarinfo != None:
+                    if tarinfo.isreg():
+                        self.buffer = self.tarfile.extractfile(tarinfo)
+                    else:
+                        self.buffer = None
+            else:
+                self.buffer = None
+
 import xml.etree.ElementTree as ET
-def readLHE(thefile):
-    source = thefile
-    filename, file_extension = os.path.splitext(thefile)
-    if file_extension == '.gzip' or file_extension == '.gz':
-        import gzip
-        source = gzip.open(thefile, 'r')
+def readLHE(thefile, subfile=None):
+    sf = SourceFile(thefile, subfile)
+    if not sf.is_valid():
+        print >> sys.stderr, '[e] unable to read from:',thefile
+        return
     try:
-        for event,element in ET.iterparse(source,events=['end']):      
+        for event,element in ET.iterparse(sf.buffer,events=['end']):      
             if element.tag == 'event':
                 data = element.text.split('\n')[1:-1]
                 eventdata,particles = data[0],data[1:]
@@ -75,8 +136,7 @@ def readLHE(thefile):
     except ET.ParseError:
         print "WARNING. Parse Error."
         return
-    if file_extension == '.gzip' or file_extension == '.gz':
-        source.close()
+    sf.close()
 
 import networkx as nx
 import pypdt
